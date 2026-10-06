@@ -325,7 +325,10 @@ AutomationNav/
 - SQLite;
 - configuración;
 - logs;
-- ejecutable inicial.
+- ejecutable inicial;
+- build automático de Windows desde el inicio.
+
+**Regla de entrega:** desde la Fase 01, todo estado válido de `main` debe poder generar `AutomationNav.exe` mediante GitHub Actions.
 
 ### Fase 02 — Navegador
 - abrir URL;
