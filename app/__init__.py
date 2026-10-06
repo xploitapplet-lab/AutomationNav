@@ -1,0 +1,1 @@
+"""AutomationNav application package."""
