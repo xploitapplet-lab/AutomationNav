@@ -4,7 +4,7 @@
 
 ## Estado
 
-Fase 01 iniciada y base ejecutable creada.
+Fase 01 funcional y primer flujo real de login implementado.
 
 ## Completado
 
@@ -20,13 +20,23 @@ Fase 01 iniciada y base ejecutable creada.
 - Pruebas base.
 - Pipeline de Windows con Python 3.13.
 - Compilación verificada de AutomationNav.exe con PyInstaller.
+- Flujo de login de Flaticon implementado.
+- Detección del proveedor de identidad actual de Flaticon: id.magnific.com.
+- Soporte para login de una o dos etapas: correo → continuar → contraseña.
+- Detección de MFA/CAPTCHA para intervención manual, sin evasión.
+- Guardado opcional de credenciales en Windows Credential Manager.
+- Carga y eliminación de credenciales desde la interfaz.
+- Credenciales excluidas de Git, logs y memoria.
 - Artefacto de Windows publicado correctamente por GitHub Actions.
 
 ## Build verificado
 
 Workflow: Build AutomationNav Windows  
-Run exitoso: #3  
+Run exitoso: #4  
 Resultado: success
+
+Commit validado:
+8a8cbb3a5a225cb657bd6703c5dfdfab0ce49e40
 
 Pasaron:
 - instalación de dependencias;
@@ -36,6 +46,13 @@ Pasaron:
 - verificación de AutomationNav.exe;
 - carga del artefacto.
 
+## Artefacto
+
+Nombre: AutomationNav-Windows  
+Contenido: AutomationNav.exe
+
+El artefacto de GitHub Actions expira según la política de retención del workflow.
+
 ## Dependencias base
 
 - PySide6 6.11.2
@@ -44,23 +61,24 @@ Pasaron:
 
 ## Seguridad
 
-Las credenciales de prueba de Flaticon no se almacenan en GitHub, logs ni memoria. La implementación de credenciales locales seguras queda para la etapa de login/sesiones.
+Las credenciales de prueba de Flaticon no se almacenan en GitHub, logs ni memoria.
+
+Si el usuario elige guardarlas desde AutomationNav, se almacenan mediante Windows Credential Manager en el equipo local.
 
 ## Próximo trabajo
 
-Completar Fase 01 y avanzar hacia:
-- cierre/estado robusto del navegador;
-- configuración base;
-- primer flujo real de login de Flaticon;
-- almacenamiento local seguro de credenciales de prueba;
-- inspección de DOM/selectores del login;
-- diagnóstico inicial.
+- prueba real del login en Windows;
+- diagnóstico detallado si Magnific cambia selectores;
+- persistencia segura de sesión;
+- análisis DOM inicial;
+- grabador de automatizaciones;
+- editor de pasos.
 
 ## Riesgos tempranos
 
-- intentar hacer demasiado automática la interpretación de cualquier sitio;
-- acoplar selectores al motor;
-- guardar secretos en configuración;
+- cambios del proveedor de identidad;
+- DOM dinámico;
 - grabador demasiado frágil;
 - depender de coordenadas;
-- mezclar lógica UI con lógica Playwright.
+- mezclar lógica UI con lógica Playwright;
+- persistir sesiones sin protección suficiente.
