@@ -45,3 +45,16 @@
 **Decisión:** Bug Hunter y Test Engineer son responsabilidades separadas.
 
 **Motivo:** encontrar fallos y diseñar cobertura de pruebas son actividades relacionadas pero distintas.
+
+
+---
+
+## 2026-10-06 — Fast Path y clasificación de cambios
+
+**Decisión:** clasificar cambios como L0–L4 antes de seleccionar el flujo de agentes.
+
+**Fast Path:** L0 y L1 pasan directamente del Coordinador al especialista responsable, con prueba específica y regresión relacionada.
+
+**Motivo:** resolver cambios pequeños rápidamente sin perder control ni obligarlos a recorrer el flujo completo.
+
+**Memoria:** solo se registran decisiones duraderas, estado relevante, arquitectura, seguridad, convenciones y hallazgos con valor futuro. Los detalles triviales quedan en el historial de Git.
