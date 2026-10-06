@@ -27,6 +27,36 @@ Objetivo: aplicación Windows para crear, administrar y ejecutar automatizacione
 - Los bugs deben verificarse contra regresiones.
 - Las funciones ya aprobadas no deben eliminarse como efecto secundario de una corrección.
 
+## Política de memoria
+
+La memoria debe ser selectiva.
+
+### Guardar
+- decisiones duraderas;
+- arquitectura;
+- seguridad;
+- convenciones;
+- comportamientos aprobados que deben preservarse;
+- bugs importantes con valor futuro;
+- estado relevante del proyecto.
+
+### No guardar
+- cambios triviales;
+- correcciones de texto;
+- pequeños ajustes visuales;
+- pruebas temporales;
+- detalles de depuración ya resueltos;
+- cada commit.
+
+Git mantiene el historial detallado. La memoria existe para acelerar decisiones futuras, no para duplicar el historial.
+
+## Política de ejecución rápida
+
+- L0 y L1 usan Fast Path.
+- Se involucran solo los agentes necesarios.
+- Se exige prueba específica y regresión relacionada.
+- Se escala a L2/L3/L4 cuando aparece impacto mayor.
+
 ## Gobierno
 
 La coordinación de cambios se define en `AGENTS.md`.
