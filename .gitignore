@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+.venv/
+venv/
+
+# Build
+build/
+dist/
+*.spec
+
+# Tests / tooling
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local AutomationNav data
+.env
+.env.*
+!.env.example
+data/local/
+logs/
+screenshots/
+downloads/
+*.db
+*.sqlite
+*.sqlite3
+
+# Credentials / sessions
+credentials/
+sessions/
+storage_state*.json
+auth_state*.json
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
