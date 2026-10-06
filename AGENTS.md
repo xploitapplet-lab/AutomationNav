@@ -6,7 +6,119 @@ Este archivo define cómo deben coordinarse los agentes que participan en Automa
 
 Ningún agente debe modificar una parte del proyecto sin comprender su impacto sobre las funciones ya estables.
 
-Flujo obligatorio:
+Antes de elegir el flujo, el Coordinador clasifica el cambio por nivel.
+
+## Clasificación de cambios
+
+### L0 — Trivial
+Ejemplos:
+- texto;
+- etiqueta;
+- icono;
+- margen;
+- color;
+- ajuste visual menor;
+- corrección ortográfica.
+
+Flujo:
+```text
+Usuario
+  ↓
+Coordinador
+  ↓
+Especialista responsable
+  ↓
+Comprobación rápida
+  ↓
+Listo
+```
+
+No requiere memoria salvo que cambie una regla de diseño permanente.
+
+### L1 — Cambio pequeño o bug localizado
+Ejemplos:
+- selector roto;
+- timeout;
+- validación puntual;
+- botón que no responde;
+- ajuste de comportamiento claramente aislado.
+
+Flujo:
+```text
+Usuario
+  ↓
+Coordinador
+  ↓
+Especialista responsable
+  ↓
+Prueba específica
+  ↓
+Regresión relacionada
+  ↓
+Listo
+```
+
+Producto/Intake, Arquitecto, Seguridad o QA completo solo participan si el cambio realmente los necesita.
+
+### L2 — Cambio funcional
+Ejemplos:
+- nueva acción;
+- nuevo formulario;
+- nuevo flujo;
+- cambio que toca varios módulos.
+
+Flujo:
+```text
+Usuario
+  ↓
+Producto / Intake
+  ↓
+Coordinador
+  ↓
+Especialistas necesarios
+  ↓
+Pruebas
+  ↓
+Bug Hunter
+  ↓
+Memoria si aplica
+```
+
+### L3 — Arquitectura
+Ejemplos:
+- nuevo motor;
+- cambio de persistencia;
+- nueva estrategia de workflows;
+- cambio de separación entre módulos.
+
+Requiere Arquitecto, pruebas amplias y actualización de decisiones.
+
+### L4 — Crítico / Seguridad
+Ejemplos:
+- credenciales;
+- sesiones;
+- cifrado;
+- permisos;
+- exposición de secretos;
+- autenticación.
+
+Requiere revisión de Seguridad y pruebas completas.
+
+## Fast Path
+
+Los cambios L0 y L1 usan Fast Path.
+
+Reglas:
+- involucrar únicamente a los agentes necesarios;
+- aplicar la corrección mínima;
+- probar la zona afectada;
+- ejecutar solo la regresión relacionada;
+- no actualizar memoria por detalles triviales;
+- escalar a L2/L3/L4 si durante el trabajo aparece impacto mayor.
+
+## Flujo completo
+
+Se utiliza cuando el cambio es L2, L3, L4 o cuando el Coordinador detecta riesgo significativo.
 
 ```text
 Solicitud del usuario
@@ -23,7 +135,7 @@ Pruebas de regresión
         ↓
 Coordinador
         ↓
-Actualización de memoria
+Actualización de memoria si corresponde
 ```
 
 ## 1. Coordinador principal
@@ -239,7 +351,28 @@ Responsabilidad:
 - registrar decisiones duraderas;
 - mantener estado actual;
 - eliminar información obsoleta de los documentos de estado;
-- evitar contradicciones.
+- evitar contradicciones;
+- evitar llenar la memoria con cambios triviales.
+
+### Qué sí se guarda
+- decisiones de arquitectura;
+- reglas permanentes;
+- cambios de seguridad;
+- convenciones técnicas;
+- comportamiento aprobado que debe preservarse;
+- bugs importantes que puedan repetirse;
+- estado actual relevante;
+- cambios que afecten futuras decisiones.
+
+### Qué no se guarda
+- correcciones ortográficas;
+- cambios menores de margen o tamaño;
+- ajustes visuales triviales;
+- pruebas temporales;
+- detalles de depuración ya resueltos;
+- cada commit o cambio pequeño.
+
+La memoria no es un changelog. Git conserva el historial detallado.
 
 Archivos:
 - `memory/PROJECT_MEMORY.md`
