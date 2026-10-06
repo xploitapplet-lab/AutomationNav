@@ -58,3 +58,16 @@
 **Motivo:** resolver cambios pequeños rápidamente sin perder control ni obligarlos a recorrer el flujo completo.
 
 **Memoria:** solo se registran decisiones duraderas, estado relevante, arquitectura, seguridad, convenciones y hallazgos con valor futuro. Los detalles triviales quedan en el historial de Git.
+
+
+---
+
+## 2026-10-06 — Ejecutable desde la primera fase
+
+**Decisión:** AutomationNav generará un ejecutable Windows desde el comienzo del desarrollo, no únicamente al final del proyecto.
+
+**Implementación:** cada estado válido de la rama `main` debe poder construir `AutomationNav.exe` mediante GitHub Actions.
+
+**Motivo:** probar continuamente el comportamiento real de la aplicación empaquetada y detectar temprano problemas que no aparecen al ejecutar únicamente Python.
+
+**Primer build verificado:** workflow `Build AutomationNav Windows`, run #3, resultado exitoso.
