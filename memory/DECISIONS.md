@@ -8,11 +8,11 @@
 
 ---
 
-## 2026-10-06 — Interfaz
+## 2026-10-06 — Interfaz inicial
 
-**Decisión:** usar PySide6.
+**Decisión inicial:** usar PySide6.
 
-**Motivo:** aplicación Windows con interfaz más estructurada y escalable que una interfaz mínima de scripts.
+**Estado:** reemplazada el mismo día por Tkinter/ttk para reducir peso y dependencias.
 
 ---
 
@@ -46,7 +46,6 @@
 
 **Motivo:** encontrar fallos y diseñar cobertura de pruebas son actividades relacionadas pero distintas.
 
-
 ---
 
 ## 2026-10-06 — Fast Path y clasificación de cambios
@@ -59,7 +58,6 @@
 
 **Memoria:** solo se registran decisiones duraderas, estado relevante, arquitectura, seguridad, convenciones y hallazgos con valor futuro. Los detalles triviales quedan en el historial de Git.
 
-
 ---
 
 ## 2026-10-06 — Ejecutable desde la primera fase
@@ -71,3 +69,17 @@
 **Motivo:** probar continuamente el comportamiento real de la aplicación empaquetada y detectar temprano problemas que no aparecen al ejecutar únicamente Python.
 
 **Primer build verificado:** workflow `Build AutomationNav Windows`, run #3, resultado exitoso.
+
+---
+
+## 2026-10-06 — Migración de PySide6 a Tkinter/ttk
+
+**Decisión:** eliminar PySide6/Qt y usar Tkinter/ttk para la interfaz de AutomationNav.
+
+**Implementación:** el motor de navegador deja de depender de `QThread/Signal` y utiliza `threading.Thread`; la interfaz recibe eventos mediante `queue.Queue` y los procesa en el hilo principal de Tkinter.
+
+**Motivo:** reducir peso del ejecutable, dependencias y complejidad para una interfaz todavía sencilla.
+
+**Resultado medido:** el artefacto comprimido pasó de aproximadamente 89.9 MB a 52.7 MB, una reducción cercana al 41%.
+
+**Criterio futuro:** solo incorporar un framework gráfico más pesado si una necesidad real de interfaz lo justifica.
