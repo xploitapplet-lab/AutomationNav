@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import logging
+import os
 import queue
 import tkinter as tk
+from datetime import datetime
 from tkinter import messagebox, ttk
 
 from app.core.browser import BrowserWorker, is_http_url
+from app.core.paths import app_data_dir
 from app.credentials import WindowsCredentialStore
 from app.sites.flaticon import BASE_URL, CREDENTIAL_TARGET, SITE_NAME
 
@@ -33,8 +36,6 @@ class MainWindow:
         self.status_var = tk.StringVar(value="Estado: listo.")
 
         self._build_ui()
-        self._initialize_credential_store()
-        self._load_saved_credential(silent=True)
         self.root.after(100, self._process_events)
 
     def _build_ui(self) -> None:
@@ -145,6 +146,13 @@ class MainWindow:
             wraplength=780,
         )
         footer.grid(row=11, column=0, columnspan=2, sticky="w")
+
+    def _initialize_credentials_after_show(self) -> None:
+        try:
+            self._initialize_credential_store()
+            self._load_saved_credential(silent=True)
+        except Exception:
+            LOGGER.exception("No se pudieron inicializar las credenciales al arrancar")
 
     def _initialize_credential_store(self) -> None:
         try:
@@ -340,6 +348,16 @@ class MainWindow:
             self._browser_worker.request_stop()
         self.root.destroy()
 
+    def _mark_window_ready(self) -> None:
+        try:
+            marker = app_data_dir() / "startup_ready.flag"
+            marker.write_text(
+                f"pid={os.getpid()}\nready={datetime.now().isoformat(timespec='seconds')}\n",
+                encoding="utf-8",
+            )
+        except Exception:
+            LOGGER.exception("No se pudo escribir la marca de inicio de la interfaz")
+
     def _center_and_show(self) -> None:
         self.root.update_idletasks()
         width = max(self.root.winfo_width(), 860)
@@ -349,10 +367,13 @@ class MainWindow:
         x = max((screen_width - width) // 2, 0)
         y = max((screen_height - height) // 2, 0)
         self.root.geometry(f"{width}x{height}+{x}+{y}")
+        self.root.state("normal")
         self.root.deiconify()
         self.root.lift()
-        self.root.after(250, lambda: self.root.focus_force())
+        self.root.update()
+        self._mark_window_ready()
 
     def run(self) -> None:
         self._center_and_show()
+        self.root.after(300, self._initialize_credentials_after_show)
         self.root.mainloop()
