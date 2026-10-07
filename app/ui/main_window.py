@@ -86,7 +86,7 @@ class MainWindow:
         self.email_entry.grid(row=5, column=1, sticky="ew", pady=6)
 
         ttk.Label(outer, text="Contraseña:").grid(row=6, column=0, sticky="e", padx=(0, 10), pady=6)
-        self.password_entry = ttk.Entry(outer, textvariable=self.password_var, show="•")
+        self.password_entry = ttk.Entry(outer, textvariable=self.password_var, show="*")
         self.password_entry.grid(row=6, column=1, sticky="ew", pady=6)
 
         self.save_credentials_check = ttk.Checkbutton(
@@ -149,7 +149,7 @@ class MainWindow:
     def _initialize_credential_store(self) -> None:
         try:
             self._credential_store = WindowsCredentialStore()
-        except OSError:
+        except Exception:
             LOGGER.exception("Windows Credential Manager no está disponible")
             self._credential_store = None
             self.save_credentials_check.configure(state="disabled")
@@ -282,7 +282,7 @@ class MainWindow:
 
         try:
             credential = self._credential_store.read(CREDENTIAL_TARGET)
-        except OSError as exc:
+        except Exception as exc:
             LOGGER.exception("No se pudo cargar la credencial")
             if not silent:
                 messagebox.showwarning(
@@ -340,5 +340,19 @@ class MainWindow:
             self._browser_worker.request_stop()
         self.root.destroy()
 
+    def _center_and_show(self) -> None:
+        self.root.update_idletasks()
+        width = max(self.root.winfo_width(), 860)
+        height = max(self.root.winfo_height(), 560)
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        x = max((screen_width - width) // 2, 0)
+        y = max((screen_height - height) // 2, 0)
+        self.root.geometry(f"{width}x{height}+{x}+{y}")
+        self.root.deiconify()
+        self.root.lift()
+        self.root.after(250, lambda: self.root.focus_force())
+
     def run(self) -> None:
+        self._center_and_show()
         self.root.mainloop()
