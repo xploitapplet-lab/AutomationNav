@@ -49,38 +49,42 @@ jobs:
           }
           Get-Item "dist\AutomationNav.exe" | Format-List Name,Length,LastWriteTime
 
-      - name: Smoke test packaged window
+      - name: Smoke test packaged UI startup
         shell: pwsh
         run: |
+          $marker = Join-Path $env:LOCALAPPDATA "AutomationNav\startup_ready.flag"
+          $startupLog = Join-Path $env:LOCALAPPDATA "AutomationNav\logs\startup_error.log"
+          Remove-Item $marker -Force -ErrorAction SilentlyContinue
+          Remove-Item $startupLog -Force -ErrorAction SilentlyContinue
+
           $process = Start-Process -FilePath "dist\AutomationNav.exe" -PassThru
-          Start-Sleep -Seconds 8
-          $process.Refresh()
 
-          if ($process.HasExited) {
-            $startupLog = Join-Path $env:LOCALAPPDATA "AutomationNav\logs\startup_error.log"
-            if (Test-Path $startupLog) {
-              Write-Host "---- startup_error.log ----"
-              Get-Content $startupLog
-            }
-            throw "AutomationNav.exe se cerró durante la prueba de arranque."
-          }
-
-          $windowFound = $false
-          for ($i = 0; $i -lt 10; $i++) {
+          $ready = $false
+          for ($i = 0; $i -lt 30; $i++) {
+            Start-Sleep -Milliseconds 500
             $process.Refresh()
-            if (-not [string]::IsNullOrWhiteSpace($process.MainWindowTitle)) {
-              $windowFound = $true
+
+            if ($process.HasExited) {
+              if (Test-Path $startupLog) {
+                Write-Host "---- startup_error.log ----"
+                Get-Content $startupLog
+              }
+              throw "AutomationNav.exe se cerró durante la prueba de arranque."
+            }
+
+            if (Test-Path $marker) {
+              $ready = $true
               break
             }
-            Start-Sleep -Milliseconds 500
           }
 
-          if (-not $windowFound) {
+          if (-not $ready) {
             Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-            throw "AutomationNav.exe sigue activo, pero no creó una ventana principal visible."
+            throw "AutomationNav.exe siguió activo, pero Tkinter no confirmó la creación de la interfaz."
           }
 
-          Write-Host "Ventana detectada: $($process.MainWindowTitle)"
+          Write-Host "Interfaz Tkinter inicializada correctamente."
+          Get-Content $marker
           Stop-Process -Id $process.Id -Force
 
       - name: Upload executable
