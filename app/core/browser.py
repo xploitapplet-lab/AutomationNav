@@ -40,7 +40,7 @@ PASSWORD_SELECTORS = (
     "input[aria-label*='contraseña' i]",
 )
 
-COOKIE_SELECTORS = (
+COOKIE_ACCEPT_SELECTORS = (
     "#onetrust-accept-btn-handler",
     "button#didomi-notice-agree-button",
     "[data-testid='uc-accept-all-button']",
@@ -48,6 +48,22 @@ COOKIE_SELECTORS = (
     "button[id*='accept' i][id*='cookie' i]",
     "button[class*='accept' i][class*='cookie' i]",
     "button[aria-label*='accept' i][aria-label*='cookie' i]",
+)
+
+COOKIE_CLOSE_SELECTORS = (
+    "#close-pc-btn-handler",
+    "#onetrust-pc-sdk button.ot-close-icon",
+    "#onetrust-close-btn-container button",
+    "button[aria-label='Cerrar']",
+    "button[aria-label='Close']",
+    "button[aria-label*='cerrar' i]",
+    "button[aria-label*='close' i]",
+)
+
+COOKIE_OVERLAY_SELECTORS = (
+    "#onetrust-pc-sdk",
+    "#onetrust-banner-sdk",
+    ".onetrust-pc-dark-filter",
 )
 
 COOKIE_CONTEXT_MARKERS = (
@@ -62,6 +78,14 @@ COOKIE_BUTTON_TEXT = re.compile(
     r"^(aceptar(?: todo| todas| todas las cookies)?|"
     r"accept(?: all)?|allow all|agree|consentir|permitir todas|"
     r"entendido|got it)$",
+    re.IGNORECASE,
+)
+
+EMAIL_METHOD_BUTTON = re.compile(
+    r"(continuar|seguir|acceder|iniciar|usar|continue|use|sign in|log in)"
+    r".*(correo|correo electrónico|email|e-mail)|"
+    r"(correo|correo electrónico|email|e-mail)"
+    r".*(continuar|seguir|acceder|iniciar|usar|continue|use|sign in|log in)",
     re.IGNORECASE,
 )
 
@@ -111,6 +135,10 @@ def is_cookie_consent_text(value: str) -> bool:
     return bool(COOKIE_BUTTON_TEXT.fullmatch(value.strip()))
 
 
+def is_email_method_text(value: str) -> bool:
+    return bool(EMAIL_METHOD_BUTTON.search(value.strip()))
+
+
 def _frames(page: Page) -> tuple[Frame, ...]:
     return tuple(page.frames)
 
@@ -148,11 +176,55 @@ def _first_semantic_field(
     return None
 
 
+def _single_text_input_candidate(page: Page) -> Locator | None:
+    candidates: list[Locator] = []
+
+    for frame in _frames(page):
+        inputs = frame.locator(
+            "input:not([type]), "
+            "input[type='text'], "
+            "input[type='email']"
+        )
+
+        try:
+            count = min(inputs.count(), 30)
+        except PlaywrightError:
+            continue
+
+        for index in range(count):
+            locator = inputs.nth(index)
+            if not _visible(locator):
+                continue
+
+            try:
+                element_id = (locator.get_attribute("id") or "").lower()
+                name = (locator.get_attribute("name") or "").lower()
+                aria = (locator.get_attribute("aria-label") or "").lower()
+                placeholder = (locator.get_attribute("placeholder") or "").lower()
+            except PlaywrightError:
+                continue
+
+            metadata = " ".join((element_id, name, aria, placeholder))
+            if "vendor-search-handler" in metadata:
+                continue
+            if "cookie" in metadata or "búsqueda" in metadata or "search" in metadata:
+                continue
+
+            candidates.append(locator)
+
+    if len(candidates) == 1:
+        LOGGER.info("Se usará el único campo de texto visible como candidato de correo.")
+        return candidates[0]
+
+    return None
+
+
 def _wait_for_field(
     page: Page,
     selectors: tuple[str, ...],
     semantic_pattern: re.Pattern[str],
     timeout_seconds: float,
+    allow_single_text_fallback: bool = False,
 ) -> Locator | None:
     deadline = time.monotonic() + timeout_seconds
 
@@ -165,6 +237,11 @@ def _wait_for_field(
         if locator is not None:
             return locator
 
+        if allow_single_text_fallback:
+            locator = _single_text_input_candidate(page)
+            if locator is not None:
+                return locator
+
         page.wait_for_timeout(250)
 
     return None
@@ -173,18 +250,23 @@ def _wait_for_field(
 def _first_visible_button(
     page: Page,
     pattern: re.Pattern[str],
+    include_links: bool = False,
 ) -> Locator | None:
-    for frame in _frames(page):
-        locator = frame.get_by_role("button", name=pattern).first
-        if _visible(locator):
-            return locator
+    roles = ("button", "link") if include_links else ("button",)
 
     for frame in _frames(page):
-        fallback = frame.locator(
-            "button[type='submit'], input[type='submit']"
-        ).first
-        if _visible(fallback):
-            return fallback
+        for role in roles:
+            locator = frame.get_by_role(role, name=pattern).first
+            if _visible(locator):
+                return locator
+
+    if not include_links:
+        for frame in _frames(page):
+            fallback = frame.locator(
+                "button[type='submit'], input[type='submit']"
+            ).first
+            if _visible(fallback):
+                return fallback
 
     return None
 
@@ -204,62 +286,153 @@ def _body_text(page: Page) -> str:
     )
 
 
-def _dismiss_cookie_consent(page: Page) -> bool:
-    """Dismiss a visible cookie banner in the page or any iframe."""
+def _click_known_cookie_accept(page: Page) -> bool:
+    for frame in _frames(page):
+        for selector in COOKIE_ACCEPT_SELECTORS:
+            locator = frame.locator(selector).first
+            if not _visible(locator):
+                continue
+
+            try:
+                locator.click(timeout=1_500)
+                LOGGER.info("Aviso de cookies aceptado con selector conocido.")
+                return True
+            except PlaywrightError:
+                continue
+
+    return False
+
+
+def _click_cookie_accept_by_text(page: Page) -> bool:
+    for frame in _frames(page):
+        context = _frame_text(frame)
+        if not any(marker in context for marker in COOKIE_CONTEXT_MARKERS):
+            continue
+
+        buttons = frame.get_by_role("button")
+        try:
+            count = min(buttons.count(), 30)
+        except PlaywrightError:
+            continue
+
+        for index in range(count):
+            button = buttons.nth(index)
+            if not _visible(button):
+                continue
+
+            try:
+                text = button.inner_text(timeout=500).strip()
+            except PlaywrightError:
+                continue
+
+            if not is_cookie_consent_text(text):
+                continue
+
+            try:
+                button.click(timeout=1_500)
+                LOGGER.info("Aviso de cookies aceptado por texto: %s", text)
+                return True
+            except PlaywrightError:
+                continue
+
+    return False
+
+
+def _close_cookie_preferences(page: Page) -> bool:
+    closed = False
 
     for _ in range(3):
+        found_visible = False
+
         for frame in _frames(page):
-            for selector in COOKIE_SELECTORS:
+            for selector in COOKIE_CLOSE_SELECTORS:
                 locator = frame.locator(selector).first
                 if not _visible(locator):
                     continue
 
+                found_visible = True
                 try:
                     locator.click(timeout=1_500)
-                    page.wait_for_timeout(500)
-                    LOGGER.info("Aviso de cookies cerrado con selector conocido.")
-                    return True
-                except PlaywrightError:
-                    continue
-
-        for frame in _frames(page):
-            context = _frame_text(frame)
-            if not any(marker in context for marker in COOKIE_CONTEXT_MARKERS):
-                continue
-
-            buttons = frame.get_by_role("button")
-            try:
-                count = min(buttons.count(), 20)
-            except PlaywrightError:
-                continue
-
-            for index in range(count):
-                button = buttons.nth(index)
-                if not _visible(button):
-                    continue
-
-                try:
-                    text = button.inner_text(timeout=500).strip()
-                except PlaywrightError:
-                    continue
-
-                if not is_cookie_consent_text(text):
-                    continue
-
-                try:
-                    button.click(timeout=1_500)
-                    page.wait_for_timeout(500)
                     LOGGER.info(
-                        "Aviso de cookies cerrado por texto de botón: %s",
-                        text,
+                        "Centro de preferencias de cookies cerrado con %s.",
+                        selector,
                     )
-                    return True
+                    closed = True
+                    page.wait_for_timeout(300)
                 except PlaywrightError:
                     continue
+
+        if not found_visible:
+            break
+
+    return closed
+
+
+def _cookie_overlay_visible(page: Page) -> bool:
+    return _first_visible_in_frames(page, COOKIE_OVERLAY_SELECTORS) is not None
+
+
+def _dismiss_cookie_consent(page: Page) -> bool:
+    """Accept cookies and ensure the OneTrust preference UI is closed."""
+
+    accepted = False
+
+    for _ in range(3):
+        if _click_known_cookie_accept(page) or _click_cookie_accept_by_text(page):
+            accepted = True
+            page.wait_for_timeout(500)
+
+        _close_cookie_preferences(page)
+
+        if not _cookie_overlay_visible(page):
+            break
 
         page.wait_for_timeout(350)
 
-    return False
+    return accepted
+
+
+def _refresh_login_after_consent(page: Page) -> None:
+    """Reload login after consent so the SPA can render without OneTrust overlay."""
+
+    self_url = page.url
+    LOGGER.info("Recargando login después del consentimiento: %s", self_url)
+
+    try:
+        page.reload(wait_until="domcontentloaded", timeout=45_000)
+    except PlaywrightError:
+        LOGGER.warning("Reload falló; se volverá a navegar a LOGIN_URL.")
+        page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=45_000)
+
+    page.wait_for_timeout(1_000)
+    _close_cookie_preferences(page)
+
+
+def _open_email_login_method(page: Page) -> bool:
+    locator = _first_visible_button(
+        page,
+        EMAIL_METHOD_BUTTON,
+        include_links=True,
+    )
+    if locator is None:
+        return False
+
+    try:
+        label = locator.inner_text(timeout=500).strip()
+    except PlaywrightError:
+        label = ""
+
+    try:
+        locator.click(timeout=2_000)
+    except PlaywrightError:
+        return False
+
+    LOGGER.info(
+        "Método de acceso por correo abierto%s.",
+        f": {label}" if label else "",
+    )
+    page.wait_for_timeout(700)
+    return True
 
 
 def _log_login_diagnostics(page: Page, stage: str) -> None:
@@ -279,19 +452,15 @@ def _log_login_diagnostics(page: Page, stage: str) -> None:
     )
 
     for frame_index, frame in enumerate(_frames(page)):
-        LOGGER.error(
-            "Frame %d | url=%s",
-            frame_index,
-            frame.url,
-        )
+        LOGGER.error("Frame %d | url=%s", frame_index, frame.url)
 
         inputs = frame.locator("input")
         try:
-            count = min(inputs.count(), 20)
+            input_count = min(inputs.count(), 30)
         except PlaywrightError:
-            continue
+            input_count = 0
 
-        for input_index in range(count):
+        for input_index in range(input_count):
             item = inputs.nth(input_index)
             attributes: dict[str, str | None] = {}
 
@@ -313,6 +482,29 @@ def _log_login_diagnostics(page: Page, stage: str) -> None:
                 frame_index,
                 input_index,
                 attributes,
+            )
+
+        buttons = frame.get_by_role("button")
+        try:
+            button_count = min(buttons.count(), 30)
+        except PlaywrightError:
+            button_count = 0
+
+        for button_index in range(button_count):
+            button = buttons.nth(button_index)
+            if not _visible(button, timeout=250):
+                continue
+
+            try:
+                text = button.inner_text(timeout=300).strip()
+            except PlaywrightError:
+                text = "<sin texto>"
+
+            LOGGER.error(
+                "Button frame=%d index=%d text=%r",
+                frame_index,
+                button_index,
+                text[:150],
             )
 
 
@@ -342,7 +534,6 @@ class BrowserThread(QThread):
         self._stop_event.set()
 
     def run(self) -> None:
-        browser = None
         try:
             self.status_changed.emit("Iniciando Microsoft Edge...")
 
@@ -351,35 +542,41 @@ class BrowserThread(QThread):
                     channel="msedge",
                     headless=False,
                 )
-                context = browser.new_context()
-                page = context.new_page()
 
-                if self.action == "flaticon_login":
-                    self._run_flaticon_login(page)
-                else:
-                    self._open_page(page, self.url)
+                try:
+                    context = browser.new_context()
+                    page = context.new_page()
 
-                while not self._stop_event.wait(0.25):
-                    if page.is_closed():
-                        break
+                    if self.action == "flaticon_login":
+                        self._run_flaticon_login(page)
+                    else:
+                        self._open_page(page, self.url)
 
-                self.status_changed.emit("Cerrando navegador...")
+                    while not self._stop_event.wait(0.25):
+                        if page.is_closed():
+                            break
+
+                    if not page.is_closed():
+                        self.status_changed.emit("Cerrando navegador...")
+
+                finally:
+                    try:
+                        browser.close()
+                    except PlaywrightError as exc:
+                        # Browser may already have been closed manually.
+                        LOGGER.info("Navegador ya cerrado: %s", exc)
 
         except PlaywrightError as exc:
-            LOGGER.exception("Error de Playwright")
-            self.browser_failed.emit(str(exc))
+            if "Target page, context or browser has been closed" in str(exc):
+                LOGGER.info("El usuario cerró el navegador durante la automatización.")
+            else:
+                LOGGER.exception("Error de Playwright")
+                self.browser_failed.emit(str(exc))
         except Exception as exc:
             LOGGER.exception("Error inesperado del navegador")
             self.browser_failed.emit(str(exc))
         finally:
             self.password = ""
-
-            if browser is not None:
-                try:
-                    browser.close()
-                except Exception:
-                    LOGGER.exception("No se pudo cerrar el navegador limpiamente")
-
             self.browser_closed.emit()
 
     def _open_page(self, page: Page, url: str) -> None:
@@ -393,37 +590,69 @@ class BrowserThread(QThread):
 
         self.status_changed.emit("Abriendo acceso de Flaticon...")
         page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=45_000)
-        page.wait_for_timeout(700)
+        page.wait_for_timeout(800)
 
         self.status_changed.emit("Comprobando aviso de cookies...")
         dismissed = _dismiss_cookie_consent(page)
+
         if dismissed:
-            self.status_changed.emit("Cookies aceptadas. Buscando formulario...")
-            page.wait_for_timeout(700)
+            self.status_changed.emit(
+                "Cookies aceptadas. Recargando formulario de acceso..."
+            )
+            _refresh_login_after_consent(page)
+            _dismiss_cookie_consent(page)
+
+        self.status_changed.emit("Buscando acceso por correo...")
 
         email = _wait_for_field(
             page,
             EMAIL_SELECTORS,
             EMAIL_LABEL,
-            timeout_seconds=15,
+            timeout_seconds=4,
+            allow_single_text_fallback=True,
         )
+
+        if email is None and _open_email_login_method(page):
+            _dismiss_cookie_consent(page)
+            email = _wait_for_field(
+                page,
+                EMAIL_SELECTORS,
+                EMAIL_LABEL,
+                timeout_seconds=12,
+                allow_single_text_fallback=True,
+            )
+
         if email is None:
-            # Some consent managers render late. Give them one more pass.
-            if _dismiss_cookie_consent(page):
-                page.wait_for_timeout(700)
+            # Final recovery: reload once, then retry email method.
+            self.status_changed.emit("Reintentando carga del formulario...")
+            page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=45_000)
+            page.wait_for_timeout(1_000)
+            _dismiss_cookie_consent(page)
+            _close_cookie_preferences(page)
+
+            email = _wait_for_field(
+                page,
+                EMAIL_SELECTORS,
+                EMAIL_LABEL,
+                timeout_seconds=4,
+                allow_single_text_fallback=True,
+            )
+
+            if email is None and _open_email_login_method(page):
                 email = _wait_for_field(
                     page,
                     EMAIL_SELECTORS,
                     EMAIL_LABEL,
-                    timeout_seconds=8,
+                    timeout_seconds=10,
+                    allow_single_text_fallback=True,
                 )
 
         if email is None:
             _log_login_diagnostics(page, "email_no_encontrado")
             raise RuntimeError(
-                "No se encontró el campo de correo después de revisar cookies, "
-                "página principal e iframes. Revisa el log de AutomationNav para "
-                "ver la estructura detectada."
+                "No se encontró el acceso por correo después de cerrar cookies, "
+                "recargar Magnific y revisar sus métodos de inicio de sesión. "
+                "El diagnóstico detallado quedó guardado en el log."
             )
 
         self.status_changed.emit("Introduciendo correo...")
@@ -441,7 +670,7 @@ class BrowserThread(QThread):
             if next_button is not None:
                 self.status_changed.emit("Continuando al campo de contraseña...")
                 next_button.click()
-                page.wait_for_timeout(400)
+                page.wait_for_timeout(500)
                 _dismiss_cookie_consent(page)
                 password = _wait_for_field(
                     page,
@@ -454,7 +683,7 @@ class BrowserThread(QThread):
             _log_login_diagnostics(page, "password_no_encontrado")
             raise RuntimeError(
                 "No se encontró el campo de contraseña. "
-                "Revisa el log de AutomationNav para ver la estructura detectada."
+                "El diagnóstico detallado quedó guardado en el log."
             )
 
         self.status_changed.emit("Introduciendo contraseña...")
@@ -466,7 +695,7 @@ class BrowserThread(QThread):
             _log_login_diagnostics(page, "submit_no_encontrado")
             raise RuntimeError(
                 "No se encontró el botón para iniciar sesión. "
-                "Revisa el log de AutomationNav."
+                "El diagnóstico detallado quedó guardado en el log."
             )
 
         self.status_changed.emit("Enviando inicio de sesión...")
