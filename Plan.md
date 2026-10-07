@@ -46,13 +46,15 @@ Automatizaciones:
 
 - Python
 - Playwright
-- PySide6
+- Tkinter/ttk
 - SQLite
 - PyInstaller
 - pytest
 - GitHub Actions
 
 La arquitectura deberá permitir cambiar componentes posteriormente sin rehacer el proyecto completo.
+
+Para mantener un ejecutable más ligero, la interfaz utilizará primero componentes incluidos con Python. Frameworks gráficos más pesados solo se incorporarán si una necesidad real del producto lo justifica.
 
 ## 4. Modos de uso
 
@@ -320,7 +322,7 @@ AutomationNav/
 
 ### Fase 01 — Base
 - estructura;
-- PySide6;
+- Tkinter/ttk;
 - Playwright;
 - SQLite;
 - configuración;
