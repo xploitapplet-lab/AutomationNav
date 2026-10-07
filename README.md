@@ -7,7 +7,7 @@ AutomationNav es una aplicación Windows para crear, administrar y ejecutar auto
 Fase 01 funcional.
 
 La base actual incluye:
-- interfaz PySide6;
+- interfaz ligera con Tkinter/ttk;
 - sitio inicial Flaticon;
 - apertura de Microsoft Edge mediante Playwright;
 - login adaptable para Flaticon/Magnific;
@@ -18,6 +18,12 @@ La base actual incluye:
 - logs locales;
 - pruebas automáticas;
 - compilación automática de AutomationNav.exe en GitHub Actions.
+
+## Interfaz
+
+AutomationNav utiliza Tkinter/ttk, incluido con Python, para evitar el peso adicional de Qt/PySide6.
+
+El motor del navegador trabaja en un hilo estándar de Python y comunica eventos a la interfaz mediante una cola segura para Tkinter.
 
 ## Primer flujo
 
