@@ -4,14 +4,16 @@
 
 ## Estado
 
-Fase 01 funcional y primer flujo real de login implementado.
+Fase 01 funcional, primer flujo real de login implementado e interfaz migrada a Tkinter/ttk.
 
 ## Completado
 
 - Repositorio y plan general.
 - Arquitectura de agentes, Fast Path y memoria técnica.
 - Estructura Python inicial.
-- Interfaz PySide6 inicial.
+- Interfaz ligera con Tkinter/ttk.
+- Eliminación completa de PySide6/Qt del runtime.
+- Motor de navegador en `threading.Thread` con eventos enviados a la UI mediante `queue.Queue`.
 - SQLite local.
 - Logs rotativos locales.
 - Sitio inicial registrado: Flaticon.
@@ -23,6 +25,7 @@ Fase 01 funcional y primer flujo real de login implementado.
 - Flujo de login de Flaticon implementado.
 - Detección del proveedor de identidad actual de Flaticon: id.magnific.com.
 - Soporte para login de una o dos etapas: correo → continuar → contraseña.
+- Manejo de OneTrust/cookies y acceso por correo.
 - Detección de MFA/CAPTCHA para intervención manual, sin evasión.
 - Guardado opcional de credenciales en Windows Credential Manager.
 - Carga y eliminación de credenciales desde la interfaz.
@@ -32,11 +35,11 @@ Fase 01 funcional y primer flujo real de login implementado.
 ## Build verificado
 
 Workflow: Build AutomationNav Windows  
-Run exitoso: #4  
+Run exitoso: #10  
 Resultado: success
 
 Commit validado:
-8a8cbb3a5a225cb657bd6703c5dfdfab0ce49e40
+695432bfaeeaf30a4fbca046a246c6d6e6b7ecf9
 
 Pasaron:
 - instalación de dependencias;
@@ -45,6 +48,13 @@ Pasaron:
 - PyInstaller;
 - verificación de AutomationNav.exe;
 - carga del artefacto.
+
+## Tamaño
+
+Artefacto anterior con PySide6: aproximadamente 89.9 MB comprimidos.  
+Artefacto después de migrar a Tkinter/ttk: aproximadamente 52.7 MB comprimidos.
+
+Reducción aproximada: 41%.
 
 ## Artefacto
 
@@ -55,7 +65,7 @@ El artefacto de GitHub Actions expira según la política de retención del work
 
 ## Dependencias base
 
-- PySide6 6.11.2
+- Tkinter/ttk incluido con Python
 - Playwright 1.63.0
 - PyInstaller 6.22.3
 
@@ -67,12 +77,13 @@ Si el usuario elige guardarlas desde AutomationNav, se almacenan mediante Window
 
 ## Próximo trabajo
 
-- prueba real del login en Windows;
+- seguir probando el login real en Windows;
 - diagnóstico detallado si Magnific cambia selectores;
 - persistencia segura de sesión;
 - análisis DOM inicial;
 - grabador de automatizaciones;
-- editor de pasos.
+- editor de pasos;
+- optimización adicional del empaquetado de Playwright si resulta conveniente.
 
 ## Riesgos tempranos
 
